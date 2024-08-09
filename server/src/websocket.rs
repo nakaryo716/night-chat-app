@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::utility::acquire_lock;
 use axum::extract::ws::Message;
 use axum::extract::ws::WebSocket;
 use axum::extract::{Path, State, WebSocketUpgrade};
@@ -17,13 +18,6 @@ pub async fn websocket_handler(
         event!(Level::WARN, message)
     })
     .on_upgrade(|socket| websocket_task(socket, app_state, room_id))
-}
-
-fn acquire_lock<T>(mutex: &Mutex<T>) -> Option<MutexGuard<T>> {
-    match mutex.lock() {
-        Ok(a) => Some(a),
-        Err(_e) => None,
-    }
 }
 
 async fn websocket_task(socket: WebSocket, state: Arc<AppState>, room_id: String) {
