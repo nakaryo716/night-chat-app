@@ -16,7 +16,7 @@ pub struct UserData {
 }
 
 impl UserData {
-    fn new(payload: Credential) -> Self {
+    pub fn new(payload: Credential) -> Self {
         Self {
             user_id: Uuid::new_v4().to_string(),
             user_mail: payload.user_mail,
@@ -33,6 +33,15 @@ impl UserData {
 pub struct Credential {
     user_mail: String,
     user_pass: String,
+}
+
+impl Credential {
+    pub fn new(user_mail: String, user_pass: String) -> Self {
+        Self {
+            user_mail,
+            user_pass,
+        }
+    }
 }
 
 pub struct UserDataDb {
