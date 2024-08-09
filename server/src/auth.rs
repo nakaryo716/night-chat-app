@@ -125,7 +125,7 @@ mod test {
     use super::{AuthManage, Credential, UserDataDb};
 
     #[test]
-    fn add_and_verify() {
+    fn add_and_verify_user() {
         let a = UserDataDb::new();
         let new_user = Credential {
             user_mail: "rustmail1234@gmail.com".to_string(),
@@ -140,7 +140,7 @@ mod test {
     }
 
     #[test]
-    fn delete() {
+    fn delete_user() {
         let db = UserDataDb::new();
         let credential = Credential {
             user_mail: "rustmail1234@gmail.com".to_string(),
