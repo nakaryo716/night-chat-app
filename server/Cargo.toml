@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1.81"
 axum = { version = "0.7.5", features = ["ws"] }
+axum-session-manager = "0.1.1"
 futures = "0.3.30"
 serde = { version = "1.0.204", features = ["derive"] }
+thiserror = "1.0.63"
 tokio = { version = "1.39.2", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
