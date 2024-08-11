@@ -5,7 +5,7 @@ use axum::extract::ws::WebSocket;
 use axum::extract::{Path, State, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures::{SinkExt, StreamExt};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 use tracing::{event, warn, Level};
 
 pub async fn websocket_handler(
