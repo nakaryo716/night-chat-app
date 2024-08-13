@@ -1,18 +1,16 @@
-use std::{collections::HashMap, sync::Mutex};
+use crate::{auth::UserDataDb, rooms::RoomsDb};
 
-use crate::{auth::UserDataDb, rooms::Room};
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AppState {
-    pub rooms: Mutex<HashMap<String, Room>>,
+    pub rooms: RoomsDb,
     pub users_pool: UserDataDb,
 }
 
 impl AppState {
     pub fn new() -> Self {
         Self {
-            rooms: Mutex::default(),
-            users_pool: UserDataDb::new()
+            rooms: RoomsDb::new(),
+            users_pool: UserDataDb::new(),
         }
     }
 }
