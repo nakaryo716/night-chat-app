@@ -1,21 +1,25 @@
-use crate::app_state::AppState;
-use axum::extract::State;
+use axum::extract::{FromRef, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::broadcast::Sender;
 use uuid::Uuid;
 
+use crate::app_state::AppState;
+
 pub async fn create_room_handler(
-    State(app_state): State<Arc<AppState>>,
+    State(app_state): State<RoomsDb>,
     Json(payload): Json<CreateRoom>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let new_room = Room::new(payload);
 
     let mut lock = app_state
-        .rooms
+        .pool
         .lock()
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
     lock.insert(new_room.get_room_id().to_string(), new_room.clone());
@@ -24,12 +28,12 @@ pub async fn create_room_handler(
 }
 
 pub async fn room_list_handler(
-    State(app_state): State<Arc<AppState>>,
+    State(app_state): State<RoomsDb>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let data: Vec<_>;
     {
-        let  lock = app_state
-            .rooms
+        let lock = app_state
+            .pool
             .lock()
             .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -98,5 +102,28 @@ impl RoomInfo {
             room_name: room.get_room_name().to_string(),
             room_time: room.get_room_time(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomsDb {
+    pool: Arc<Mutex<HashMap<String, Room>>>,
+}
+
+impl RoomsDb {
+    pub fn new() -> Self {
+        Self {
+            pool: Arc::default(),
+        }
+    }
+
+    pub fn pool_ref(&self) -> Arc<Mutex<HashMap<String, Room>>> {
+        Arc::clone(&self.pool)
+    }
+}
+
+impl FromRef<AppState> for RoomsDb {
+    fn from_ref(input: &AppState) -> Self {
+        input.rooms.clone()
     }
 }
