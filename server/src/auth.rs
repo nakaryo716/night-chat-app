@@ -3,12 +3,59 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use axum::{async_trait, extract::{FromRef, State}, http::StatusCode, response::IntoResponse, routing::{delete, post}, Json, Router};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::utility::acquire_lock;
+use crate::{app_state::AppState, utility::acquire_lock};
 
-#[derive(Debug, Clone)]
+// pub fn auth_router() -> Router {
+//     Router::new()
+//         .route("/user/create", post(create_user_handle))
+//         .route("/user/verify", post(verify_user_handle))
+//         .route("/user/delete", delete(delete_user_handle))
+// }
+
+pub async fn create_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .add_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn verify_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .verify_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn delete_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,    
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .delete_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    Ok(StatusCode::OK)
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct UserData {
     user_id: String,
     user_mail: String,
@@ -29,7 +76,7 @@ impl UserData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Credential {
     user_mail: String,
     user_pass: String,
@@ -44,6 +91,7 @@ impl Credential {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UserDataDb {
     pool: Arc<Mutex<HashMap<String, UserData>>>,
 }
@@ -55,17 +103,25 @@ impl UserDataDb {
         }
     }
 }
+
+impl FromRef<AppState> for UserDataDb {
+    fn from_ref(input: &AppState) -> Self {
+        input.users_pool.clone()
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AuthError {
     #[error("query error")]
     DbError,
 }
 
+#[async_trait]
 impl AuthManage<Credential, Credential> for UserDataDb {
     type UserData = UserData;
     type Error = AuthError;
 
-    fn add_user(&self, new_user: Credential) -> Result<Self::UserData, Self::Error> {
+    async fn add_user(&self, new_user: Credential) -> Result<Self::UserData, Self::Error> {
         let user = UserData::new(new_user);
         match acquire_lock(&self.pool)
             .and_then(|mut lock| lock.insert(user.get_user_id().to_string(), user.clone()))
@@ -75,7 +131,10 @@ impl AuthManage<Credential, Credential> for UserDataDb {
         }
     }
 
-    fn verify_user(&self, credential: Credential) -> Result<Option<Self::UserData>, Self::Error> {
+    async fn verify_user(
+        &self,
+        credential: Credential,
+    ) -> Result<Option<Self::UserData>, Self::Error> {
         match acquire_lock(&self.pool) {
             Some(lock) => {
                 let user_data = lock
@@ -89,7 +148,11 @@ impl AuthManage<Credential, Credential> for UserDataDb {
             None => Err(AuthError::DbError),
         }
     }
-    fn delete_user(&self, credential: Credential) -> Result<Option<Self::UserData>, Self::Error> {
+
+    async fn delete_user(
+        &self,
+        credential: Credential,
+    ) -> Result<Option<Self::UserData>, Self::Error> {
         let lock = acquire_lock(&self.pool);
 
         match lock {
@@ -111,44 +174,45 @@ impl AuthManage<Credential, Credential> for UserDataDb {
     }
 }
 
+#[async_trait]
 pub trait AuthManage<N, C> {
     type UserData;
     type Error;
 
-    fn add_user(&self, new_user: N) -> Result<Self::UserData, Self::Error>;
-    fn verify_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
-    fn delete_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
+    async fn add_user(&self, new_user: N) -> Result<Self::UserData, Self::Error>;
+    async fn verify_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
+    async fn delete_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
 }
 
 #[cfg(test)]
 mod test {
     use super::{AuthManage, Credential, UserDataDb};
 
-    #[test]
-    fn add_and_verify_user() {
+    #[tokio::test]
+    async fn add_and_verify_user() {
         let a = UserDataDb::new();
         let new_user = Credential {
             user_mail: "rustmail1234@gmail.com".to_string(),
             user_pass: "rustpass1234".to_string(),
         };
 
-        a.add_user(new_user.clone()).unwrap();
-        let user_data = a.verify_user(new_user.clone()).unwrap().unwrap();
+        a.add_user(new_user.clone()).await.unwrap();
+        let user_data = a.verify_user(new_user.clone()).await.unwrap().unwrap();
 
         assert_eq!(user_data.user_mail, new_user.user_mail);
         assert_eq!(user_data.user_pass, new_user.user_pass);
     }
 
-    #[test]
-    fn delete_user() {
+    #[tokio::test]
+    async fn delete_user() {
         let db = UserDataDb::new();
         let credential = Credential {
             user_mail: "rustmail1234@gmail.com".to_string(),
             user_pass: "rustpass1234".to_string(),
         };
 
-        db.add_user(credential.clone()).unwrap();
-        let deleted_data = db.delete_user(credential.clone()).unwrap().unwrap();
+        db.add_user(credential.clone()).await.unwrap();
+        let deleted_data = db.delete_user(credential.clone()).await.unwrap().unwrap();
 
         assert_eq!(deleted_data.user_mail, credential.user_mail);
         assert_eq!(deleted_data.user_pass, credential.user_pass);
