@@ -3,13 +3,59 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use axum::async_trait;
+use axum::{async_trait, extract::{FromRef, State}, http::StatusCode, response::IntoResponse, routing::{delete, post}, Json, Router};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::utility::acquire_lock;
+use crate::{app_state::AppState, utility::acquire_lock};
 
-#[derive(Debug, Clone)]
+// pub fn auth_router() -> Router {
+//     Router::new()
+//         .route("/user/create", post(create_user_handle))
+//         .route("/user/verify", post(verify_user_handle))
+//         .route("/user/delete", delete(delete_user_handle))
+// }
+
+pub async fn create_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .add_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn verify_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .verify_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    Ok(StatusCode::OK)
+}
+
+pub async fn delete_user_handle(
+    State(app_state): State<UserDataDb>,
+    Json(payload): Json<Credential>,    
+) -> Result<impl IntoResponse, StatusCode> {
+    app_state
+        .delete_user(payload)
+        .await
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    Ok(StatusCode::OK)
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct UserData {
     user_id: String,
     user_mail: String,
@@ -30,7 +76,7 @@ impl UserData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Credential {
     user_mail: String,
     user_pass: String,
@@ -45,6 +91,7 @@ impl Credential {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UserDataDb {
     pool: Arc<Mutex<HashMap<String, UserData>>>,
 }
@@ -56,6 +103,13 @@ impl UserDataDb {
         }
     }
 }
+
+impl FromRef<AppState> for UserDataDb {
+    fn from_ref(input: &AppState) -> Self {
+        input.users_pool.clone()
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AuthError {
     #[error("query error")]
