@@ -3,57 +3,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use axum::{async_trait, extract::{FromRef, State}, http::StatusCode, response::IntoResponse, routing::{delete, post}, Json, Router};
+use axum::{async_trait, extract::FromRef};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{app_state::AppState, utility::acquire_lock};
 
-// pub fn auth_router() -> Router {
-//     Router::new()
-//         .route("/user/create", post(create_user_handle))
-//         .route("/user/verify", post(verify_user_handle))
-//         .route("/user/delete", delete(delete_user_handle))
-// }
-
-pub async fn create_user_handle(
-    State(app_state): State<UserDataDb>,
-    Json(payload): Json<Credential>,
-) -> Result<impl IntoResponse, StatusCode> {
-    app_state
-        .add_user(payload)
-        .await
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    Ok(StatusCode::OK)
-}
-
-pub async fn verify_user_handle(
-    State(app_state): State<UserDataDb>,
-    Json(payload): Json<Credential>,
-) -> Result<impl IntoResponse, StatusCode> {
-    app_state
-        .verify_user(payload)
-        .await
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    Ok(StatusCode::OK)
-}
-
-pub async fn delete_user_handle(
-    State(app_state): State<UserDataDb>,
-    Json(payload): Json<Credential>,    
-) -> Result<impl IntoResponse, StatusCode> {
-    app_state
-        .delete_user(payload)
-        .await
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    Ok(StatusCode::OK)
-}
+mod handler;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct UserData {
@@ -117,6 +74,16 @@ pub enum AuthError {
 }
 
 #[async_trait]
+pub trait AuthManage<N, C> {
+    type UserData;
+    type Error;
+
+    async fn add_user(&self, new_user: N) -> Result<Self::UserData, Self::Error>;
+    async fn verify_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
+    async fn delete_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
+}
+
+#[async_trait]
 impl AuthManage<Credential, Credential> for UserDataDb {
     type UserData = UserData;
     type Error = AuthError;
@@ -172,16 +139,6 @@ impl AuthManage<Credential, Credential> for UserDataDb {
             None => Err(AuthError::DbError),
         }
     }
-}
-
-#[async_trait]
-pub trait AuthManage<N, C> {
-    type UserData;
-    type Error;
-
-    async fn add_user(&self, new_user: N) -> Result<Self::UserData, Self::Error>;
-    async fn verify_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
-    async fn delete_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
 }
 
 #[cfg(test)]
