@@ -8,39 +8,53 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{app_state::AppState, utility::acquire_lock};
+use crate::app_state::AppState;
 
 mod handler;
+// UserId wraped uuid 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct UserId(String);
 
-#[derive(Debug, Clone, Serialize)]
-pub struct UserData {
-    user_id: String,
-    user_mail: String,
-    user_pass: String,
+impl UserId {
+    pub fn get_id_txt(&self) -> &str {
+        &self.0
+    }
 }
 
-impl UserData {
-    pub fn new(payload: Credential) -> Self {
-        Self {
-            user_id: Uuid::new_v4().to_string(),
-            user_mail: payload.user_mail,
-            user_pass: payload.user_pass,
-        }
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserMail(String);
+
+impl UserMail {
+    pub fn new(user_mail: &str) -> Self {
+        Self(user_mail.to_owned())
     }
 
-    pub fn get_user_id(&self) -> &str {
-        &self.user_id
+    pub fn get_mail_txt(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UserPass(String);
+
+impl UserPass {
+    pub fn new(user_pass: &str) -> Self {
+        Self(user_pass.to_owned())
+    }
+
+    pub fn get_pass_txt(&self) -> &str {
+        &self.0
     }
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Credential {
-    user_mail: String,
-    user_pass: String,
+    user_mail: UserMail,
+    user_pass: UserPass,
 }
 
 impl Credential {
-    pub fn new(user_mail: String, user_pass: String) -> Self {
+    fn new(user_mail: UserMail, user_pass: UserPass) -> Self {
         Self {
             user_mail,
             user_pass,
@@ -48,9 +62,38 @@ impl Credential {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct UserData {
+    user_id: UserId,
+    user_mail: UserMail,
+    user_pass: UserPass,
+}
+
+impl UserData {
+    pub fn new(payload: Credential) -> Self {
+        Self {
+            user_id: UserId(Uuid::new_v4().to_string()),
+            user_mail: payload.user_mail,
+            user_pass: payload.user_pass,
+        }
+    }
+
+    pub fn get_user_id(&self) -> &UserId {
+        &self.user_id
+    }
+
+    pub fn get_user_mail(&self) -> &UserMail {
+        &self.user_mail
+    }
+
+    pub fn get_user_pass(&self) -> &UserPass {
+        &self.user_pass
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UserDataDb {
-    pool: Arc<Mutex<HashMap<String, UserData>>>,
+    pool: Arc<Mutex<HashMap<UserId, UserData>>>,
 }
 
 impl UserDataDb {
@@ -74,104 +117,22 @@ pub enum AuthError {
 }
 
 #[async_trait]
-pub trait AuthManage<N, C> {
+pub trait AuthManageDb {
     type UserData;
     type Error;
 
-    async fn add_user(&self, new_user: N) -> Result<Self::UserData, Self::Error>;
-    async fn verify_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
-    async fn delete_user(&self, credential: C) -> Result<Option<Self::UserData>, Self::Error>;
-}
-
-#[async_trait]
-impl AuthManage<Credential, Credential> for UserDataDb {
-    type UserData = UserData;
-    type Error = AuthError;
-
-    async fn add_user(&self, new_user: Credential) -> Result<Self::UserData, Self::Error> {
-        let user = UserData::new(new_user);
-        match acquire_lock(&self.pool)
-            .and_then(|mut lock| lock.insert(user.get_user_id().to_string(), user.clone()))
-        {
-            Some(_) => Ok(user),
-            None => Ok(user),
-        }
-    }
-
-    async fn verify_user(
-        &self,
-        credential: Credential,
-    ) -> Result<Option<Self::UserData>, Self::Error> {
-        match acquire_lock(&self.pool) {
-            Some(lock) => {
-                let user_data = lock
-                    .iter()
-                    .filter(|(_id, user)| credential.user_mail == user.user_mail)
-                    .map(|(_id, user)| user.to_owned())
-                    .next();
-
-                Ok(user_data)
-            }
-            None => Err(AuthError::DbError),
-        }
-    }
-
-    async fn delete_user(
-        &self,
-        credential: Credential,
-    ) -> Result<Option<Self::UserData>, Self::Error> {
-        let lock = acquire_lock(&self.pool);
-
-        match lock {
-            Some(mut lock) => {
-                let id = lock
-                    .iter()
-                    .filter(|(_id, user)| credential.user_mail == user.user_mail)
-                    .map(|(id, _user)| id.to_owned())
-                    .next();
-
-                let res = match id {
-                    Some(id) => lock.remove(&id),
-                    None => None,
-                };
-                Ok(res)
-            }
-            None => Err(AuthError::DbError),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::{AuthManage, Credential, UserDataDb};
-
-    #[tokio::test]
-    async fn add_and_verify_user() {
-        let a = UserDataDb::new();
-        let new_user = Credential {
-            user_mail: "rustmail1234@gmail.com".to_string(),
-            user_pass: "rustpass1234".to_string(),
-        };
-
-        a.add_user(new_user.clone()).await.unwrap();
-        let user_data = a.verify_user(new_user.clone()).await.unwrap().unwrap();
-
-        assert_eq!(user_data.user_mail, new_user.user_mail);
-        assert_eq!(user_data.user_pass, new_user.user_pass);
-    }
-
-    #[tokio::test]
-    async fn delete_user() {
-        let db = UserDataDb::new();
-        let credential = Credential {
-            user_mail: "rustmail1234@gmail.com".to_string(),
-            user_pass: "rustpass1234".to_string(),
-        };
-
-        db.add_user(credential.clone()).await.unwrap();
-        let deleted_data = db.delete_user(credential.clone()).await.unwrap().unwrap();
-
-        assert_eq!(deleted_data.user_mail, credential.user_mail);
-        assert_eq!(deleted_data.user_pass, credential.user_pass);
-    }
+    // insert new user 
+    // this method is called by handler with payload
+    // parse payload -> instance UserData -> insert to db
+    async fn insert_new_user(&self, credential: UserData) -> Result<Self::UserData, Self::Error>;
+    // this method is not called by handler
+    // called other trait method befor excute to db
+    // e.g. befor insert_new_user to avoid daplicate user
+    async fn have_user(&self, credential: UserMail) -> Result<bool, Self::Error>;
+    // this method is called by session handler
+    // parse payload(Credential) -> get user pass that keeped db -> verify password -> create session
+    async fn verify_password(&self, credential: Credential) -> Result<Option<Self::UserData>, Self::Error>;
+    // this method is called by handler 
+    // parse cookie -> get user id -> delete user
+    async fn delete_user(&self, credential: UserId) -> Result<(), Self::Error>;
 }
