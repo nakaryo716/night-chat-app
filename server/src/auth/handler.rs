@@ -1,41 +1,40 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 
-use super::{AuthManage, Credential, UserDataDb};
+use super::{AuthManageDb, Credential, UserData, UserDataDb};
 
 pub async fn create_user_handle(
-    State(app_state): State<UserDataDb>,
+    State(user_data_db): State<UserDataDb>,
     Json(payload): Json<Credential>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    app_state
-        .add_user(payload)
+    let new_user = UserData::new(payload);
+    user_data_db
+        .insert_new_user(new_user)
         .await
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
 
-pub async fn verify_user_handle(
-    State(app_state): State<UserDataDb>,
+pub async fn verify_password_handle(
+    State(user_data_db): State<UserDataDb>,
     Json(payload): Json<Credential>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    app_state
-        .verify_user(payload)
+    user_data_db
+        .verify_password(payload)
         .await
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
 
 pub async fn delete_user_handle(
-    State(app_state): State<UserDataDb>,
-    Json(payload): Json<Credential>,    
+    State(user_data_db): State<UserDataDb>,
+    Json(payload): Json<Credential>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    app_state
+    user_data_db
         .delete_user(payload)
         .await
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(StatusCode::OK)
 }
