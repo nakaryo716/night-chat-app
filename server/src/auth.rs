@@ -1,17 +1,13 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
-
 use axum::{async_trait, extract::FromRef};
 use serde::{Deserialize, Serialize};
+use sqlx::MySqlPool;
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::app_state::AppState;
 
 mod handler;
-// UserId wraped uuid 
+// UserId wraped uuid
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct UserId(String);
 
@@ -54,7 +50,7 @@ pub struct Credential {
 }
 
 impl Credential {
-    fn new(user_mail: UserMail, user_pass: UserPass) -> Self {
+    pub fn new(user_mail: UserMail, user_pass: UserPass) -> Self {
         Self {
             user_mail,
             user_pass,
@@ -91,16 +87,23 @@ impl UserData {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum DbConnectionError {
+    #[error("connection failed")]
+    ConectionRefused,
+}
+
 #[derive(Debug, Clone)]
 pub struct UserDataDb {
-    pool: Arc<Mutex<HashMap<UserId, UserData>>>,
+    pool: MySqlPool,
 }
 
 impl UserDataDb {
-    pub fn new() -> Self {
-        Self {
-            pool: Arc::default(),
-        }
+    pub async fn new(database_url: &str) -> Result<Self, DbConnectionError> {
+        let pool = MySqlPool::connect(database_url)
+            .await
+            .map_err(|_e| DbConnectionError::ConectionRefused)?;
+        Ok(Self { pool })
     }
 }
 
@@ -110,18 +113,12 @@ impl FromRef<AppState> for UserDataDb {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum AuthError {
-    #[error("query error")]
-    DbError,
-}
-
 #[async_trait]
 pub trait AuthManageDb {
     type UserData;
     type Error;
 
-    // insert new user 
+    // insert new user
     // this method is called by handler with payload
     // parse payload -> instance UserData -> insert to db
     async fn insert_new_user(&self, credential: UserData) -> Result<Self::UserData, Self::Error>;
@@ -131,8 +128,17 @@ pub trait AuthManageDb {
     async fn have_user(&self, credential: UserMail) -> Result<bool, Self::Error>;
     // this method is called by session handler
     // parse payload(Credential) -> get user pass that keeped db -> verify password -> create session
-    async fn verify_password(&self, credential: Credential) -> Result<Option<Self::UserData>, Self::Error>;
-    // this method is called by handler 
+    async fn verify_password(
+        &self,
+        credential: Credential,
+    ) -> Result<Option<Self::UserData>, Self::Error>;
+    // this method is called by handler
     // parse cookie -> get user id -> delete user
     async fn delete_user(&self, credential: UserId) -> Result<(), Self::Error>;
+}
+
+#[derive(Debug, Error)]
+pub enum AuthError {
+    #[error("query error")]
+    DbError,
 }
