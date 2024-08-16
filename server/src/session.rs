@@ -16,8 +16,8 @@ pub struct SessionUserInfo {
 }
 
 impl SessionUserInfo {
-    fn get_id(&self) -> &str {
-        &self.user_id.get_id_txt()
+    pub fn get_id(&self) -> &UserId {
+        &self.user_id
     }
 }
 
@@ -118,6 +118,6 @@ mod test {
         let res = db.verify_session(&session_id).await.unwrap().unwrap();
         let res_user_id = res.get_id();
 
-        assert_eq!(res_user_id, payload_user_data.get_user_id().get_id_txt())
+        assert_eq!(res_user_id, payload_user_data.get_user_id())
     }
 }
