@@ -8,16 +8,16 @@ use axum_session_manager::SessionManage;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::auth::UserData;
+use crate::auth::{UserData, UserId};
 
 #[derive(Debug, Clone)]
 pub struct SessionUserInfo {
-    user_id: String,
+    user_id: UserId,
 }
 
 impl SessionUserInfo {
     fn get_id(&self) -> &str {
-        &self.user_id
+        &self.user_id.get_id_txt()
     }
 }
 
@@ -98,7 +98,7 @@ impl<'a> SessionManage<UserData> for SessionPool {
 #[cfg(test)]
 mod test {
     use super::SessionPool;
-    use crate::auth::{Credential, UserData};
+    use crate::auth::{Credential, UserData, UserMail, UserPass};
     use axum_session_manager::SessionManage;
 
     const USER_MAIL: &str = "test_user_mail";
@@ -109,8 +109,8 @@ mod test {
         let db = SessionPool::new();
 
         let payload_user_data = UserData::new(Credential::new(
-            USER_MAIL.to_string(),
-            USER_PASS.to_string(),
+            UserMail::new(USER_MAIL),
+            UserPass::new(USER_PASS),
         ));
 
         let session_id = db.add_session(payload_user_data.clone()).await.unwrap();
@@ -118,6 +118,6 @@ mod test {
         let res = db.verify_session(&session_id).await.unwrap().unwrap();
         let res_user_id = res.get_id();
 
-        assert_eq!(res_user_id, payload_user_data.get_user_id())
+        assert_eq!(res_user_id, payload_user_data.get_user_id().get_id_txt())
     }
 }
