@@ -2,15 +2,15 @@ use crate::{auth::UserDataDb, rooms::RoomsDb};
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub rooms: RoomsDb,
+    pub rooms_db: RoomsDb,
     pub users_pool: UserDataDb,
 }
 
 impl AppState {
-    pub fn new() -> Self {
+    pub fn new(rooms_db: RoomsDb, users_pool: UserDataDb) -> Self {
         Self {
-            rooms: RoomsDb::new(),
-            users_pool: UserDataDb::new(),
+            rooms_db,
+            users_pool,
         }
     }
 }

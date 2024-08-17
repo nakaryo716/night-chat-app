@@ -1,4 +1,6 @@
 use app_state::AppState;
+use auth::UserDataDb;
+use rooms::RoomsDb;
 
 mod app_state;
 mod auth;
@@ -11,8 +13,10 @@ mod websocket;
 
 #[tokio::main]
 async fn main() {
-    let state = AppState::new();
-
+    let rooms_db = RoomsDb::new();
+    let users_pool = UserDataDb::new("database_url").await.unwrap();
+    
+    let state = AppState::new(rooms_db, users_pool);
     let app = router::app(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

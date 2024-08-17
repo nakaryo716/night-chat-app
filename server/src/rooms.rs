@@ -124,6 +124,6 @@ impl RoomsDb {
 
 impl FromRef<AppState> for RoomsDb {
     fn from_ref(input: &AppState) -> Self {
-        input.rooms.clone()
+        input.rooms_db.clone()
     }
 }
