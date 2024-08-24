@@ -1,26 +1,12 @@
 use crate::utility::acquire_lock;
 use axum::extract::ws::Message;
 use axum::extract::ws::WebSocket;
-use axum::extract::{Path, State, WebSocketUpgrade};
-use axum::response::IntoResponse;
 use futures::{SinkExt, StreamExt};
-use tracing::{event, warn, Level};
+use tracing::warn;
 
 use super::rooms::RoomsDb;
 
-pub async fn websocket_handler(
-    ws: WebSocketUpgrade,
-    State(rooms_db): State<RoomsDb>,
-    Path(room_id): Path<String>,
-) -> impl IntoResponse {
-    ws.on_failed_upgrade(|e| {
-        let message = format!("error: [{:?}]", e);
-        event!(Level::WARN, message)
-    })
-    .on_upgrade(|socket| websocket_task(socket, rooms_db, room_id))
-}
-
-async fn websocket_task(socket: WebSocket, room_db: RoomsDb, room_id: String) {
+pub async fn websocket_task(socket: WebSocket, room_db: RoomsDb, room_id: String) {
     let (mut sender, mut receiver) = socket.split();
 
     let tx = match acquire_lock(&room_db.pool_ref()).and_then(|guard| guard.get(&room_id).cloned())
