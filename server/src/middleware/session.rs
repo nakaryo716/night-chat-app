@@ -8,8 +8,9 @@ use axum_session_manager::SessionManage;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::auth::{UserData, UserId};
+use crate::middleware::auth;
 
+use super::auth::UserId;
 #[derive(Debug, Clone)]
 pub struct SessionUserInfo {
     user_id: UserId,
@@ -35,8 +36,6 @@ impl SessionPool {
 }
 #[derive(Debug, Error)]
 pub enum SessionError {
-    #[error("failed to parse")]
-    ParseError,
     #[error("failed to query")]
     DbError,
     #[error("not found")]
@@ -46,12 +45,15 @@ pub enum SessionError {
 }
 
 #[async_trait]
-impl<'a> SessionManage<UserData> for SessionPool {
+impl<'a> SessionManage<auth::UserData> for SessionPool {
     type SessionID = String;
     type UserInfo = SessionUserInfo;
     type Error = SessionError;
 
-    async fn add_session(&self, session_data: UserData) -> Result<Self::SessionID, Self::Error> {
+    async fn add_session(
+        &self,
+        session_data: auth::UserData,
+    ) -> Result<Self::SessionID, Self::Error> {
         let session_id = Uuid::new_v4().to_string();
         {
             let mut lock = self
@@ -98,7 +100,7 @@ impl<'a> SessionManage<UserData> for SessionPool {
 #[cfg(test)]
 mod test {
     use super::SessionPool;
-    use crate::auth::{Credential, UserData, UserMail, UserPass};
+    use crate::middleware::auth::{Credential, UserData, UserMail, UserPass};
     use axum_session_manager::SessionManage;
 
     const USER_MAIL: &str = "test_user_mail";
