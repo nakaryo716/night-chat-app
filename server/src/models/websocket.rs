@@ -1,4 +1,3 @@
-use crate::rooms::RoomsDb;
 use crate::utility::acquire_lock;
 use axum::extract::ws::Message;
 use axum::extract::ws::WebSocket;
@@ -6,6 +5,8 @@ use axum::extract::{Path, State, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures::{SinkExt, StreamExt};
 use tracing::{event, warn, Level};
+
+use super::rooms::RoomsDb;
 
 pub async fn websocket_handler(
     ws: WebSocketUpgrade,
