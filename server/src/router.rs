@@ -4,7 +4,7 @@ use axum::{routing::get, Router};
 use crate::app::AppState;
 use crate::controllers::rooms::{create_room_handler, room_list_handler};
 use crate::controllers::view::index;
-use crate::models::websocket::websocket_handler;
+use crate::controllers::websocket::websocket_handler;
 
 pub fn app(state: AppState) -> Router {
     Router::new()
