@@ -1,4 +1,4 @@
-use crate::{auth::UserDataDb, rooms::RoomsDb};
+use crate::{middleware::auth::UserDataDb, models::rooms::RoomsDb};
 
 #[derive(Debug, Clone)]
 pub struct AppState {

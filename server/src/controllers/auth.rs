@@ -1,6 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 
-use super::{AuthManageDb, Credential, UserData, UserDataDb};
+use crate::middleware::auth::{AuthManageDb, Credential, UserData, UserDataDb};
 
 pub async fn create_user_handle(
     State(user_data_db): State<UserDataDb>,

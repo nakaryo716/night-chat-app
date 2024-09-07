@@ -1,50 +1,14 @@
-use axum::extract::{FromRef, State};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use axum::Json;
+use axum::extract::FromRef;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+use thiserror::Error;
 use tokio::sync::broadcast::Sender;
 use uuid::Uuid;
 
-use crate::app_state::AppState;
-
-pub async fn create_room_handler(
-    State(app_state): State<RoomsDb>,
-    Json(payload): Json<CreateRoom>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let new_room = Room::new(payload);
-
-    let mut lock = app_state
-        .pool
-        .lock()
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
-    lock.insert(new_room.get_room_id().to_string(), new_room.clone());
-
-    Ok((StatusCode::OK, Json(RoomInfo::new(new_room))))
-}
-
-pub async fn room_list_handler(
-    State(app_state): State<RoomsDb>,
-) -> Result<impl IntoResponse, StatusCode> {
-    let data: Vec<_>;
-    {
-        let lock = app_state
-            .pool
-            .lock()
-            .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        data = lock
-            .iter()
-            .map(|(_id, room)| RoomInfo::new(room.to_owned()))
-            .collect();
-    }
-
-    Ok((StatusCode::OK, Json(data)))
-}
+use crate::app::AppState;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateRoom {
@@ -125,5 +89,52 @@ impl RoomsDb {
 impl FromRef<AppState> for RoomsDb {
     fn from_ref(input: &AppState) -> Self {
         input.rooms_db.clone()
+    }
+}
+
+pub trait RoomsManage {
+    fn create_room(&self, payload: CreateRoom) -> Result<Room, RoomError>;
+    fn get_all_room(&self) -> Result<Vec<RoomInfo>, RoomError>;
+    fn delete_room(&self, room_id: String) -> Result<(), RoomError>;
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum RoomError {
+    #[error("room not found")]
+    NotFound,
+    #[error("mutex lock error")]
+    LockError,
+}
+
+impl RoomsManage for RoomsDb {
+    fn create_room(&self, room_payload: CreateRoom) -> Result<Room, RoomError> {
+        let new_room = Room::new(room_payload);
+
+        let mut lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
+        lock.insert(new_room.get_room_id().to_string(), new_room.clone());
+
+        Ok(new_room)
+    }
+
+    fn get_all_room(&self) -> Result<Vec<RoomInfo>, RoomError> {
+        let rooms: Vec<_>;
+        {
+            let lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
+
+            rooms = lock
+                .iter()
+                .map(|(_id, room)| RoomInfo::new(room.to_owned()))
+                .collect();
+        }
+        Ok(rooms)
+    }
+
+    fn delete_room(&self, room_id: String) -> Result<(), RoomError> {
+        self.pool
+            .lock()
+            .map_err(|_e| RoomError::LockError)?
+            .remove(&room_id);
+
+        Ok(())
     }
 }

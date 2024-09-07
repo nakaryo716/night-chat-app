@@ -4,9 +4,8 @@ use sqlx::{prelude::FromRow, MySqlPool};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::app_state::AppState;
+use crate::app::AppState;
 
-mod handler;
 // UserId wraped uuid
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, FromRow)]
 pub struct UserId(String);
