@@ -1,16 +1,14 @@
-use crate::{middleware::auth::UserDataDb, models::rooms::RoomsDb};
+use crate::models::rooms::RoomsDb;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub rooms_db: RoomsDb,
-    pub users_pool: UserDataDb,
 }
 
 impl AppState {
-    pub fn new(rooms_db: RoomsDb, users_pool: UserDataDb) -> Self {
+    pub fn new(rooms_db: RoomsDb) -> Self {
         Self {
             rooms_db,
-            users_pool,
         }
     }
 }
