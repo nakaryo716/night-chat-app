@@ -7,8 +7,6 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(rooms_db: RoomsDb) -> Self {
-        Self {
-            rooms_db,
-        }
+        Self { rooms_db }
     }
 }
