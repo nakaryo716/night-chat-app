@@ -13,23 +13,24 @@ use crate::app::AppState;
 #[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct RoomId(String);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoomName(String);
+impl RoomId {
+    pub fn new(id: String) -> Self {
+        RoomId(id)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoomTime(u32);
+pub struct RoomName(String);
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateRoom {
     room_name: RoomName,
-    room_time: RoomTime,
 }
 
 #[derive(Debug, Clone)]
 pub struct Room {
     room_id: RoomId,
     room_name: RoomName,
-    room_time: RoomTime,
     sender: Sender<String>,
 }
 
@@ -39,7 +40,6 @@ impl Room {
         Self {
             room_id: RoomId(room_id),
             room_name: create_room.room_name,
-            room_time: create_room.room_time,
             sender: Sender::new(128),
         }
     }
@@ -52,10 +52,6 @@ impl Room {
         &self.room_name
     }
 
-    pub fn get_room_time(&self) -> &RoomTime {
-        &self.room_time
-    }
-
     pub fn get_sender(&self) -> Sender<String> {
         self.sender.clone()
     }
@@ -65,7 +61,6 @@ impl Room {
 pub struct RoomInfo {
     room_id: RoomId,
     room_name: RoomName,
-    room_time: RoomTime,
 }
 
 impl RoomInfo {
@@ -73,7 +68,6 @@ impl RoomInfo {
         Self {
             room_id: room.get_room_id().to_owned(),
             room_name: room.get_room_name().to_owned(),
-            room_time: room.get_room_time().to_owned(),
         }
     }
 }
@@ -90,39 +84,13 @@ impl RoomsDb {
         }
     }
 
-    pub fn pool_ref(&self) -> Arc<Mutex<HashMap<RoomId, Room>>> {
-        Arc::clone(&self.pool)
-    }
-
     pub fn get_room(&self, room_id: &RoomId) -> Result<Room, RoomError> {
         let lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
         let room = lock.get(room_id).ok_or(RoomError::NotFound)?.to_owned();
         Ok(room)
     }
-}
 
-impl FromRef<AppState> for RoomsDb {
-    fn from_ref(input: &AppState) -> Self {
-        input.rooms_db.clone()
-    }
-}
-
-pub trait RoomsManage {
-    fn create_room(&self, payload: CreateRoom) -> Result<Room, RoomError>;
-    fn get_all_room(&self) -> Result<Vec<RoomInfo>, RoomError>;
-    fn delete_room(&self, room_id: RoomId) -> Result<(), RoomError>;
-}
-
-#[derive(Debug, Clone, Error)]
-pub enum RoomError {
-    #[error("room not found")]
-    NotFound,
-    #[error("mutex lock error")]
-    LockError,
-}
-
-impl RoomsManage for RoomsDb {
-    fn create_room(&self, room_payload: CreateRoom) -> Result<Room, RoomError> {
+    pub fn create_room(&self, room_payload: CreateRoom) -> Result<Room, RoomError> {
         let new_room = Room::new(room_payload);
 
         let mut lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
@@ -131,7 +99,7 @@ impl RoomsManage for RoomsDb {
         Ok(new_room)
     }
 
-    fn get_all_room(&self) -> Result<Vec<RoomInfo>, RoomError> {
+    pub fn get_all_room_info(&self) -> Result<Vec<RoomInfo>, RoomError> {
         let rooms: Vec<_>;
         {
             let lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
@@ -144,12 +112,36 @@ impl RoomsManage for RoomsDb {
         Ok(rooms)
     }
 
-    fn delete_room(&self, room_id: RoomId) -> Result<(), RoomError> {
+    pub fn delete_room(&self, room_id: RoomId) -> Result<(), RoomError> {
         self.pool
             .lock()
             .map_err(|_e| RoomError::LockError)?
             .remove(&room_id);
-
         Ok(())
     }
+
+    pub fn delete_all_room(&self) -> Result<(), RoomError> {
+        let mut lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
+
+        let all_room_id: Vec<RoomId> = lock.iter().map(|(id, _room)| id.to_owned()).collect();
+
+        all_room_id.iter().for_each(|e| {
+            lock.remove(e);
+        });
+        Ok(())
+    }
+}
+
+impl FromRef<AppState> for RoomsDb {
+    fn from_ref(input: &AppState) -> Self {
+        input.rooms_db.clone()
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum RoomError {
+    #[error("room not found")]
+    NotFound,
+    #[error("mutex lock error")]
+    LockError,
 }
