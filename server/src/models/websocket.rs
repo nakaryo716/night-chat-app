@@ -5,14 +5,15 @@ use tracing::warn;
 
 use super::rooms::Room;
 
-pub async fn websocket_task(socket: WebSocket, room: Room) {
+pub async fn websocket_task(socket: WebSocket, room: Room, user_name: String) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
     let tx = room.get_sender();
     let tx_clone = tx.clone();
     let mut receive_task = tokio::task::spawn(async move {
-        while let Some(Ok(Message::Text(text))) = ws_receiver.next().await {
-            if let Err(e) = tx_clone.send(text) {
+        while let Some(Ok(Message::Text(text_msg))) = ws_receiver.next().await {
+            let formated_txt = format!("{}/{}", user_name, text_msg);
+            if let Err(e) = tx_clone.send(formated_txt) {
                 warn!("[error]{:?}", e);
                 break;
             }
