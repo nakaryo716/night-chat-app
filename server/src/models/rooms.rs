@@ -120,16 +120,16 @@ impl RoomsDb {
         Ok(())
     }
 
-    pub fn delete_all_room(&self) -> Result<(), RoomError> {
-        let mut lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
+    // pub fn delete_all_room(&self) -> Result<(), RoomError> {
+    //     let mut lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
 
-        let all_room_id: Vec<RoomId> = lock.iter().map(|(id, _room)| id.to_owned()).collect();
+    //     let all_room_id: Vec<RoomId> = lock.iter().map(|(id, _room)| id.to_owned()).collect();
 
-        all_room_id.iter().for_each(|e| {
-            lock.remove(e);
-        });
-        Ok(())
-    }
+    //     all_room_id.iter().for_each(|e| {
+    //         lock.remove(e);
+    //     });
+    //     Ok(())
+    // }
 }
 
 impl FromRef<AppState> for RoomsDb {
