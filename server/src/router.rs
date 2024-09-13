@@ -8,6 +8,7 @@ use crate::controllers::user_name::{
 };
 use crate::controllers::view::{index, user_view};
 use crate::controllers::websocket::websocket_upgrade_handler;
+use crate::middleware::time_limit::time_limit_check;
 
 pub fn app(state: AppState) -> Router {
     Router::new()
@@ -22,4 +23,5 @@ pub fn app(state: AppState) -> Router {
         .route("/delete_room/:room_id", delete(delete_room_handler))
         .route("/websocket/:room_id", get(websocket_upgrade_handler))
         .with_state(state)
+        .route_layer(axum::middleware::from_fn(time_limit_check))
 }
