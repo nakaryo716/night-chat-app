@@ -6,4 +6,4 @@ services:
       context: .
     ports:
       - "3000:3000"
-    command: "cargo run"
+    command: "cargo build --release && ./target/release/server"
