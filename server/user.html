@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Chat Test</h1>
+
+    <input id="user-name" style="display:block; width:100px; box-sizing: border-box" type="text" placeholder="user-name">
+    <button id="confirm" type="button" style="height: 30px;">Submit</button>
+
+    <script>
+        const username = document.getElementById("user-name");
+        const btn = document.querySelector("#confirm");
+
+        const post_usr_name = async () => {
+            const userval = username.value;
+            const body = {
+                user_name: userval
+            };
+
+            try {
+                const res = await fetch("http://localhost:3000/user_name", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+            } catch (error) {
+                console.error("post error:", error);
+            }
+        };
+
+        btn.addEventListener("click", post_usr_name);
+    </script>
+</body>
+</html>
