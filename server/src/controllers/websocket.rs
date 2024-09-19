@@ -1,26 +1,20 @@
-use axum::extract::{Path, State, WebSocketUpgrade};
+use axum::extract::{Path, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum_extra::extract::CookieJar;
 use tracing::{event, Level};
 
 use crate::models::rooms::{RoomId, RoomsDb};
-use crate::models::user_name::get_user_name_from_cookie;
+use crate::models::user_name::UserNameForCoockie;
 use crate::models::websocket::websocket_task;
 
 pub async fn websocket_upgrade_handler(
-    ws: WebSocketUpgrade,
-    State(rooms_db): State<RoomsDb>,
     Path(room_id): Path<String>,
-    jar: CookieJar,
+    Query(user_name): Query<UserNameForCoockie>,
+    State(rooms_db): State<RoomsDb>,
+    ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
+    let user_name = user_name.get_user_name().to_string();
     let room = rooms_db.get_room(&RoomId::new(room_id));
-
-    let user_name = match get_user_name_from_cookie(jar) {
-        Some(cookie_val) => cookie_val,
-        None => return StatusCode::UNAUTHORIZED.into_response(),
-    };
-
     match room {
         Ok(room) => ws
             .on_failed_upgrade(|e| {

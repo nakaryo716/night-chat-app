@@ -1,14 +1,18 @@
 use axum_extra::extract::{cookie::Cookie, CookieJar};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub const COOKIEKEY: &str = "user_name";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserNameForCoockie {
     user_name: String,
 }
 
 impl UserNameForCoockie {
+    pub fn new(user_name: String) -> Self {
+        Self { user_name }
+    }
+
     pub fn get_user_name(&self) -> &str {
         &self.user_name
     }

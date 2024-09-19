@@ -1,0 +1,68 @@
+.chatContainer {
+    display: flex;
+    flex-direction: column;
+    height: 750px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    border: 3px solid #3d444d;
+  }
+  
+  .messageContainer {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    /* border-bottom: 1px solid yellow; */
+    background-color: #363e48;
+  }
+  
+  .message {
+    border-bottom: 1px dotted #ccc;
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  
+  .inputContainer {
+    display: flex;
+    border-top: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: #c0c0c0;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    margin-top: 10px;
+  }
+  
+  .input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    background-color: #212830;
+    margin-right: 5px;
+  }
+  
+  .sendButton {
+    padding: 8px 16px;
+    background-color: #8ab46d;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    
+  }
+  
+  .sendButton:hover {
+    background-color: #a7da84; /* ホバー時の色 */
+}
+
+.sendButton:active {
+    background-color: #62814e; /* 押下時の色 */
+}
+
+.roomName {
+    text-align: center;
+}
