@@ -99,6 +99,16 @@ impl RoomsDb {
         Ok(new_room)
     }
 
+    pub fn get_room_info(&self, room_id: &RoomId) -> Result<RoomInfo, RoomError> {
+        let lock = self.pool.lock().map_err(|_e| RoomError::LockError)?;
+
+        let room = lock.get(room_id);
+        match room {
+            Some(room) => Ok(RoomInfo::new(room.to_owned())),
+            None => Err(RoomError::NotFound),
+        }
+    }
+
     pub fn get_all_room_info(&self) -> Result<Vec<RoomInfo>, RoomError> {
         let rooms: Vec<_>;
         {
