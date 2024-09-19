@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 
-use crate::models::rooms::{CreateRoom, RoomId, RoomInfo, RoomsDb};
+use crate::models::rooms::{CreateRoom, RoomError, RoomId, RoomInfo, RoomsDb};
 
 pub async fn create_room_handler(
     State(rooms_db): State<RoomsDb>,
@@ -16,6 +16,18 @@ pub async fn create_room_handler(
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok((StatusCode::OK, Json(RoomInfo::new(new_room))))
+}
+
+pub async fn get_room_info_handler(
+    State(rooms_db): State<RoomsDb>,
+    Path(room_id_url): Path<String>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let room_info = rooms_db.get_room_info(&RoomId::new(room_id_url)).map_err(|e| match e{
+        RoomError::LockError => StatusCode::INTERNAL_SERVER_ERROR,
+        RoomError::NotFound => StatusCode::NOT_FOUND,
+    })?;
+
+    Ok((StatusCode::OK, Json(room_info)))
 }
 
 pub async fn room_list_handler(
