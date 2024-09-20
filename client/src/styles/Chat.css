@@ -20,6 +20,7 @@
     border-bottom: 1px dotted #ccc;
     padding: 10px 0;
     font-size: 14px;
+
   }
   
   .inputContainer {
@@ -65,4 +66,25 @@
 
 .roomName {
     text-align: center;
+}
+
+.messageMetaData {
+  display: flex;  /* flexboxを使用 */
+  justify-content: space-between;
+  /* font-size: normal; */
+}
+
+.messageUserName {
+  color: #65d0de;
+}
+
+.messageBody {
+  font-size: medium;
+  max-width: 700px;
+  word-wrap: normal;
+}
+
+.messageBodyText {
+  margin: 10px;
+  word-wrap: normal;
 }
