@@ -3,9 +3,10 @@ import { useLoaderData, useLocation } from 'react-router-dom';
 import '../styles/Chat.css'; 
 import { getRoomInfoApi } from '../api/roomApi';
 import { RoomInfo } from '../types/room';
+import { ChatMessage } from '../types/chat';
 
 const Chat = () => {
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [roomName, setroomName] = useState("");
   const [input, setInput] = useState<string>('');
   const socketRef = useRef<WebSocket | null>(null);
@@ -43,7 +44,8 @@ const Chat = () => {
     socketRef.current = websocket;
 
     const onMessage = (event: MessageEvent<string>) => {
-      setMessages((prevMessages) => [...prevMessages, event.data]);
+      const data: ChatMessage= JSON.parse(event.data);
+      setMessages((prevMessages) => [...prevMessages, data]);
     };
 
     websocket.addEventListener('message', onMessage);
@@ -67,6 +69,11 @@ const Chat = () => {
     }
   };
 
+  const formatTime = (timestamp: Date) => {
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}/${date.getMonth()}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+  };
+
   return (
     <>
       <h1 className='roomName'>{roomName}</h1>
@@ -74,7 +81,13 @@ const Chat = () => {
         <div className="messageContainer">
           {messages.map((message, index) => (
             <div key={index} className="message">
-              <p>{message}</p>
+              <div className='messageMetaData'>
+                <p className='messageUserName'>{message.user_name}</p>
+                <p className='messageTime'>{formatTime(message.time_stamp)}</p>
+              </div>
+              <div className='messageBody'>
+                <p className='messageBodyText'>{message.text}</p>
+              </div>
             </div>
           ))}
         </div>
